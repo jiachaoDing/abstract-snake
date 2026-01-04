@@ -32,26 +32,54 @@ body {
     text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
 }
 
-#gameCanvas {
-    background-color: #000;
+#gameCanvas, #animCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
     display: block;
 }
 
-#game-over {
+#gameCanvas {
+    background-color: #000;
+    z-index: 1;
+}
+
+#animCanvas {
+    pointer-events: none; /* 让点击穿透到游戏层 */
+    z-index: 2; /* 降低层级，确保不遮挡游戏 */
+    background-color: transparent;
+}
+
+#start-screen, #game-over {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: rgba(0, 0, 0, 0.85);
-    padding: 30px;
-    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.6); /* 降低浓度，让背景透出来 */
+    backdrop-filter: blur(5px); /* 添加模糊效果，更显高级 */
+    padding: 40px;
+    border-radius: 15px;
     text-align: center;
     z-index: 20;
-    border: 2px solid #444;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    min-width: 300px;
 }
 
-#game-over.hidden {
+#start-screen.hidden, #game-over.hidden {
     display: none;
+}
+
+.title {
+    font-size: 48px;
+    margin-bottom: 30px;
+    color: #4CAF50;
+    text-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+}
+
+.loading-status {
+    font-size: 18px;
+    margin-bottom: 20px;
+    color: #aaa;
 }
 
 .message {
@@ -60,18 +88,23 @@ body {
     color: #ff4444;
 }
 
-#restart-btn {
-    padding: 10px 30px;
-    font-size: 18px;
+#start-btn, #restart-btn {
+    padding: 12px 40px;
+    font-size: 20px;
     background-color: #4CAF50;
     color: white;
     border: none;
     border-radius: 5px;
     cursor: pointer;
-    transition: background-color 0.3s;
+    transition: all 0.3s;
 }
 
-#restart-btn:hover {
+#start-btn.hidden {
+    display: none;
+}
+
+#start-btn:hover, #restart-btn:hover {
     background-color: #45a049;
+    transform: scale(1.05);
 }
 

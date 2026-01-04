@@ -1,249 +1,233 @@
+/**
+ * 主脚本 - 整合新架构的所有模块
+ * 
+ * 新架构优势：
+ * 1. 事件驱动：模块间通过事件总线通信，完全解耦
+ * 2. 按需渲染：只在游戏状态变化时重绘，大幅降低 CPU 使用
+ * 3. 独立动画：动画系统有自己的渲染循环，不影响游戏主循环
+ * 4. 性能监控：内置性能统计，可实时查看优化效果
+ */
+
+// ============= 全局变量 =============
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
+const animCanvas = document.getElementById('animCanvas');
 const scoreElement = document.getElementById('score');
+const maxLengthElement = document.getElementById('max-length');
 const gameOverScreen = document.getElementById('game-over');
 const restartBtn = document.getElementById('restart-btn');
+const startScreen = document.getElementById('start-screen');
+const startBtn = document.getElementById('start-btn');
+const loadingStatus = startScreen.querySelector('.loading-status');
 
-// 图片资源
-const snakeHeadImg = new Image();
-snakeHeadImg.src = 'assets/head.png';
-const snakeBodyImg = new Image();
-snakeBodyImg.src = 'assets/body.png';
-const foodImg = new Image();
-foodImg.src = 'assets/food.png';
+// ============= 核心系统初始化 =============
+// 创建渲染器（负责游戏画布的智能渲染）
+const renderer = new Renderer(canvas, ctx);
 
-let imagesLoaded = {
-    head: false,
-    body: false,
-    food: false
-};
+// 创建动画管理器（独立的动画系统）
+const animationManager = new AnimationManager(animCanvas);
 
-snakeHeadImg.onload = () => imagesLoaded.head = true;
-snakeBodyImg.onload = () => imagesLoaded.body = true;
-foodImg.onload = () => imagesLoaded.food = true;
+// 创建游戏引擎（游戏逻辑核心）
+const gameEngine = new GameEngine();
 
-// 音频资源
-const eatAudio = new Audio('assets/eatfood.aac');
-const deadAudio = new Audio('assets/dead.aac');
+// 创建背景星空
+const starfield = new Starfield(canvas.width, canvas.height);
 
-function playAudio(audio) {
-    audio.currentTime = 0;
-    audio.play().catch(e => console.log("Audio play failed:", e));
-}
+// 立即执行一次初始化调整，确保画布铺满全屏
+resizeCanvas();
 
-// 游戏配置
-const GRID_SIZE = 40;
-let tileCountX, tileCountY;
-let score = 0;
-let dx = 1, dy = 0; // 初始向右移动
-let nextDx = 1, nextDy = 0;
-let snake = [];
-let food = { x: 5, y: 5 };
-let gameLoop;
-let isGameOver = false;
+// 开启持续渲染，让背景在首页就开始动起来
+renderer.continuousRender = true;
 
-// 帧率控制
-let lastTime = 0;
-let moveTimer = 0;
-const MOVE_INTERVAL = 150; // 蛇移动的逻辑间隔 (150ms)，控制移动速度
+// ============= 注册动画 =============
+animationManager.register('opening', {
+    src: 'assets/sprite_sheet_66.png',
+    audioSrc: 'assets/animation1.MP3',
+    cols: 11,
+    rows: 6,
+    totalFrames: 66,
+    frameDuration: SPECIAL_ANIM_CONFIG.frameDuration,
+    scaleRatio: SPECIAL_ANIM_CONFIG.scale,
+    brightness: SPECIAL_ANIM_CONFIG.brightness,
+    audioDelay: 300
+});
 
-// 触摸控制变量
-let touchStartX = 0;
-let touchStartY = 0;
+// ============= 设置渲染任务 =============
+// 将游戏实体的绘制注册到渲染队列
+renderer.addRenderTask('background', (ctx, deltaTime) => {
+    starfield.update(deltaTime);
+    starfield.draw(ctx);
+}, 0);
 
-function initGame() {
-    resizeCanvas();
-    resetGameState();
-    if (gameLoop) cancelAnimationFrame(gameLoop);
-    lastTime = 0;
-    moveTimer = 0;
-    gameLoop = requestAnimationFrame(gameStep);
-}
-
-function gameStep(timestamp) {
-    if (isGameOver) return;
-
-    if (!lastTime) lastTime = timestamp;
-    const deltaTime = timestamp - lastTime;
-    lastTime = timestamp;
-    moveTimer += deltaTime;
-
-    // 逻辑更新：只有达到 MOVE_INTERVAL 时才移动蛇
-    if (moveTimer >= MOVE_INTERVAL) {
-        moveSnake();
-        if (checkCollision()) {
-            endGame();
-            return;
+renderer.addRenderTask('food', (ctx) => {
+    try {
+        const data = gameEngine.getRenderData();
+        if (data && data.foodManager) {
+            data.foodManager.draw(ctx);
         }
-        moveTimer = 0;
+    } catch (e) {
+        console.error('[Render] 绘制食物出错:', e);
     }
+}, 1);
 
-    // 画面绘制：每一帧都进行 (通常是 60FPS)，确保动画流畅
-    draw();
+renderer.addRenderTask('snake', (ctx) => {
+    try {
+        const data = gameEngine.getRenderData();
+        if (data && data.snake) {
+            // 传入移动进度实现平滑渲染
+            data.snake.draw(ctx, data.snakeMoveProgress);
+        }
+    } catch (e) {
+        console.error('[Render] 绘制蛇出错:', e);
+    }
+}, 2);
 
-    gameLoop = requestAnimationFrame(gameStep);
-}
+renderer.addRenderTask('knives', (ctx) => {
+    try {
+        const data = gameEngine.getRenderData();
+        if (data && data.knifeManager && data.knifeManager.knives) {
+            data.knifeManager.draw(ctx);
+        }
+    } catch (e) {
+        console.error('[Render] 绘制飞刀出错:', e);
+    }
+}, 3);
 
-function resetGameState() {
-    score = 0;
-    scoreElement.innerText = score;
-    dx = 1; dy = 0;
-    nextDx = 1; nextDy = 0;
-    isGameOver = false;
+// ============= 事件订阅 =============
+// 监听游戏状态变化
+eventBus.on('game:scoreChanged', (data) => {
+    scoreElement.innerText = data.score;
+    maxLengthElement.innerText = data.maxSnakeLength;
+}, 'UI');
+
+eventBus.on('game:reset', (data) => {
+    scoreElement.innerText = data.score;
+    maxLengthElement.innerText = data.maxSnakeLength;
     gameOverScreen.classList.add('hidden');
+    document.getElementById('score-board').style.display = 'block';
+}, 'UI');
+
+eventBus.on('game:over', (data) => {
+    gameOverScreen.classList.remove('hidden');
+    // 停止 BGM
+    Assets.audio.bgm.pause();
+}, 'UI');
+
+eventBus.on('game:paused', () => {
+    Assets.audio.bgm.pause();
+}, 'BGM');
+
+eventBus.on('game:resumed', () => {
+    Assets.audio.bgm.play().catch(e => console.log("BGM play failed:", e));
+}, 'BGM');
+
+eventBus.on('game:started', () => {
+    Assets.audio.bgm.currentTime = 0;
+    Assets.audio.bgm.play().catch(e => console.log("BGM play failed:", e));
+}, 'BGM');
+
+eventBus.on('game:specialFoodEaten', () => {
+    // 播放特殊食物动画
+    animationManager.play('opening');
+}, 'AnimationController');
+
+// 监听窗口大小变化
+eventBus.on('game:resize', () => {
+    renderer.markDirty();
+}, 'WindowManager');
+
+// ============= 资源加载检测 =============
+let assetCheckInterval = setInterval(() => {
+    // 检查普通图片资源
+    const totalImages = Object.keys(Assets.loaded).length;
+    const loadedImages = Object.values(Assets.loaded).filter(v => v).length;
     
-    const centerX = Math.floor(tileCountX / 2);
-    const centerY = Math.floor(tileCountY / 2);
-    // 初始长度为 12，以配合 1 body = 4 格子的逻辑 (3个body)
-    snake = [];
-    for (let i = 0; i < 12; i++) {
-        snake.push({ x: centerX - i, y: centerY, dx: 1, dy: 0 });
+    // 检查动画资源（不仅要加载，还要完成预渲染）
+    const animators = Array.from(animationManager.animations.values());
+    const totalAnims = animators.length;
+    const loadedAnims = animators.filter(a => a.isPreRendered).length;
+    
+    if (loadedImages === totalImages && loadedAnims === totalAnims) {
+        loadingStatus.innerText = "所有资源已就绪（含预渲染动画）！";
+        startBtn.classList.remove('hidden');
+        clearInterval(assetCheckInterval);
+    } else {
+        loadingStatus.innerText = `资源加载中 (图片:${loadedImages}/${totalImages}, 动画:${loadedAnims}/${totalAnims})...`;
     }
+}, 100);
+
+// ============= 游戏控制函数 =============
+function initGame() {
+    startScreen.classList.add('hidden');
+    resizeCanvas();
     
-    createFood();
+    // 初始化游戏引擎
+    const tileCountX = Math.floor(canvas.width / GRID_SIZE);
+    const tileCountY = Math.floor(canvas.height / GRID_SIZE);
+    
+    gameEngine.init(tileCountX, tileCountY, canvas.width, canvas.height);
+    
+    // 强制触发一次渲染
+    renderer.markDirty();
+    
+    // 启动游戏
+    gameEngine.start();
 }
 
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    tileCountX = Math.floor(canvas.width / GRID_SIZE);
-    tileCountY = Math.floor(canvas.height / GRID_SIZE);
-}
-
-function createFood() {
-    food = {
-        x: Math.floor(Math.random() * tileCountX),
-        y: Math.floor(Math.random() * tileCountY)
-    };
-    for (let part of snake) {
-        if (part.x === food.x && part.y === food.y) {
-            createFood();
-            break;
-        }
-    }
-}
-
-function draw() {
-    ctx.fillStyle = 'black';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    if (imagesLoaded.food) {
-        const targetSize = GRID_SIZE * 3;
-        const ratio = foodImg.width / foodImg.height;
-        let drawW = targetSize, drawH = targetSize;
-        if (ratio > 1) drawH = targetSize / ratio;
-        else drawW = targetSize * ratio;
-        
-        ctx.drawImage(foodImg, 
-            food.x * GRID_SIZE - (drawW - GRID_SIZE) / 2, 
-            food.y * GRID_SIZE - (drawH - GRID_SIZE) / 2, 
-            drawW, drawH);
-    } else {
-        ctx.fillStyle = 'red';
-        ctx.fillRect(food.x * GRID_SIZE, food.y * GRID_SIZE, GRID_SIZE - 2, GRID_SIZE - 2);
-    }
-
-    // 画蛇 - 分层绘制：先画身体，后画头
-    // 1. 绘制身体部分 (index % 4 === 2) - 这样可以让身体分布在 3, 7, 11... 个格子，避开头部
-    snake.forEach((part, index) => {
-        if (index === 0) return; // 先跳过头
-        
-        if (index % 4 === 2) {
-            ctx.save();
-            ctx.translate(part.x * GRID_SIZE + GRID_SIZE / 2, part.y * GRID_SIZE + GRID_SIZE / 2);
-
-            if (imagesLoaded.body) {
-                ctx.rotate(-Math.PI / 2); // 额外逆时针旋转 90 度
-                const bodySize = GRID_SIZE * 6; 
-                // 保持比例绘制
-                const ratio = snakeBodyImg.width / snakeBodyImg.height;
-                let drawW = bodySize, drawH = bodySize;
-                if (ratio > 1) drawH = bodySize / ratio;
-                else drawW = bodySize * ratio;
-
-                ctx.drawImage(snakeBodyImg, -drawW / 2, -drawH / 2, drawW, drawH);
-            } else {
-                ctx.fillStyle = 'green';
-                ctx.fillRect(-GRID_SIZE/2, -GRID_SIZE/2, GRID_SIZE, GRID_SIZE);
-            }
-            ctx.restore();
-        }
-    });
-
-    // 2. 绘制蛇头 (确保在身体之上)
-    const head = snake[0];
-    ctx.save();
-    ctx.translate(head.x * GRID_SIZE + GRID_SIZE / 2, head.y * GRID_SIZE + GRID_SIZE / 2);
+    animCanvas.width = canvas.width;
+    animCanvas.height = canvas.height;
     
-    if (imagesLoaded.head) {
-        const headSize = GRID_SIZE * 2;
-        // 保持比例绘制本体
-        const ratio = snakeHeadImg.width / snakeHeadImg.height;
-        let drawW = headSize, drawH = headSize;
-        if (ratio > 1) drawH = headSize / ratio;
-        else drawW = headSize * ratio;
-
-        ctx.drawImage(snakeHeadImg, -drawW / 2, -drawH / 2, drawW, drawH);
-    } else {
-        ctx.fillStyle = '#00FF00';
-        ctx.fillRect(-GRID_SIZE/2, -GRID_SIZE/2, GRID_SIZE, GRID_SIZE);
-    }
-    ctx.restore();
-}
-
-function moveSnake() {
-    dx = nextDx;
-    dy = nextDy;
-    let nextX = snake[0].x + dx;
-    let nextY = snake[0].y + dy;
-
-    if (nextX < 0) nextX = tileCountX - 1;
-    else if (nextX >= tileCountX) nextX = 0;
-    if (nextY < 0) nextY = tileCountY - 1;
-    else if (nextY >= tileCountY) nextY = 0;
-
-    const head = { x: nextX, y: nextY, dx: dx, dy: dy };
-    snake.unshift(head);
-
-    // 吃到食物
-    if (head.x === food.x && head.y === food.y) {
-        score += 10;
-        scoreElement.innerText = score;
-        playAudio(eatAudio);
-        createFood();
-        // 吃到食物时增加四节，因为一个 body 占四个格子
-        const tail = snake[snake.length - 1];
-        for (let i = 0; i < 4; i++) {
-            snake.push({ ...tail });
-        }
-    } else {
-        snake.pop();
+    // 通知动画管理器调整大小
+    animationManager.resize(canvas.width, canvas.height);
+    
+    // 通知背景星空调整大小
+    if (typeof starfield !== 'undefined') {
+        starfield.resize(canvas.width, canvas.height);
     }
 }
 
-function checkCollision() {
-    const head = snake[0];
-    for (let i = 1; i < snake.length; i++) {
-        if (snake[i].x === head.x && snake[i].y === head.y) return true;
-    }
-    return false;
-}
-
-function endGame() {
-    isGameOver = true;
-    playAudio(deadAudio);
-    gameOverScreen.classList.remove('hidden');
-    if (gameLoop) cancelAnimationFrame(gameLoop);
-}
-
+// ============= 输入处理 =============
+// 键盘控制
 window.addEventListener('keydown', e => {
     switch (e.key) {
-        case 'ArrowUp': if (dy === 0) { nextDx = 0; nextDy = -1; } break;
-        case 'ArrowDown': if (dy === 0) { nextDx = 0; nextDy = 1; } break;
-        case 'ArrowLeft': if (dx === 0) { nextDx = -1; nextDy = 0; } break;
-        case 'ArrowRight': if (dx === 0) { nextDx = 1; nextDy = 0; } break;
+        case 'ArrowUp': 
+            gameEngine.setSnakeDirection(0, -1); 
+            break;
+        case 'ArrowDown': 
+            gameEngine.setSnakeDirection(0, 1); 
+            break;
+        case 'ArrowLeft': 
+            gameEngine.setSnakeDirection(-1, 0); 
+            break;
+        case 'ArrowRight': 
+            gameEngine.setSnakeDirection(1, 0); 
+            break;
+        case 'p':
+        case 'P':
+            // 暂停/恢复功能
+            if (gameEngine.isPaused) {
+                gameEngine.resume();
+            } else {
+                gameEngine.pause();
+            }
+            break;
+        case 'd':
+        case 'D':
+            // 调试模式：显示性能统计
+            console.log('=== 性能统计 ===');
+            console.log('渲染器:', renderer.getPerformanceStats());
+            console.log('动画管理器:', animationManager.getDebugInfo());
+            console.log('事件总线:', eventBus.getDebugInfo());
+            break;
     }
 });
+
+// 触摸控制
+let touchStartX = 0;
+let touchStartY = 0;
 
 canvas.addEventListener('touchstart', e => {
     touchStartX = e.touches[0].clientX;
@@ -253,19 +237,69 @@ canvas.addEventListener('touchstart', e => {
 canvas.addEventListener('touchend', e => {
     const diffX = e.changedTouches[0].clientX - touchStartX;
     const diffY = e.changedTouches[0].clientY - touchStartY;
+    
     if (Math.abs(diffX) > Math.abs(diffY)) {
         if (Math.abs(diffX) > 30) {
-            if (diffX > 0 && dx === 0) { nextDx = 1; nextDy = 0; }
-            else if (diffX < 0 && dx === 0) { nextDx = -1; nextDy = 0; }
+            gameEngine.setSnakeDirection(diffX > 0 ? 1 : -1, 0);
         }
     } else {
         if (Math.abs(diffY) > 30) {
-            if (diffY > 0 && dy === 0) { nextDx = 0; nextDy = 1; }
-            else if (diffY < 0 && dy === 0) { nextDx = 0; nextDy = -1; }
+            gameEngine.setSnakeDirection(0, diffY > 0 ? 1 : -1);
         }
     }
 }, { passive: true });
 
-window.addEventListener('resize', resizeCanvas);
-restartBtn.addEventListener('click', initGame);
-initGame();
+// ============= 窗口事件 =============
+window.addEventListener('resize', () => {
+    const oldWidth = canvas.width;
+    const oldHeight = canvas.height;
+    resizeCanvas();
+    
+    // 如果游戏已初始化，通知游戏引擎
+    if (gameEngine.snake) {
+        const tileCountX = Math.floor(canvas.width / GRID_SIZE);
+        const tileCountY = Math.floor(canvas.height / GRID_SIZE);
+        gameEngine.resize(tileCountX, tileCountY, canvas.width, canvas.height);
+    }
+});
+
+// ============= 按钮事件 =============
+restartBtn.addEventListener('click', () => {
+    // 停止所有动画
+    animationManager.stopAll();
+    // 重新初始化游戏
+    initGame();
+});
+
+startBtn.addEventListener('click', initGame);
+
+// ============= 性能监控（可选） =============
+// 每5秒输出一次性能统计（开发模式）
+if (window.location.search.includes('debug=true')) {
+    eventBus.debugMode = true;
+    setInterval(() => {
+        console.log('=== 性能报告 ===');
+        console.log('渲染器:', renderer.getPerformanceStats());
+        console.log('动画:', animationManager.getDebugInfo());
+    }, 5000);
+}
+
+// ============= 导出全局对象（便于调试） =============
+window.gameDebug = {
+    engine: gameEngine,
+    renderer: renderer,
+    animationManager: animationManager,
+    eventBus: eventBus,
+    getStats: () => ({
+        renderer: renderer.getPerformanceStats(),
+        animations: animationManager.getDebugInfo(),
+        events: eventBus.getDebugInfo()
+    })
+};
+
+console.log('🎮 游戏已加载！');
+console.log('💡 提示：');
+console.log('  - 按 P 键暂停/恢复');
+console.log('  - 按 D 键查看性能统计');
+console.log('  - 在 URL 添加 ?debug=true 开启自动性能监控');
+console.log('  - 在控制台输入 gameDebug.getStats() 查看详细统计');
