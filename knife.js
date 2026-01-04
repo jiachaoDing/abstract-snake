@@ -47,7 +47,8 @@ class Knife {
         this.vy = Math.sin(angle) * speed;
         
         this.rotation = 0;
-        this.rotationSpeed = 0.2 + Math.random() * 0.3;
+        // 降低旋转速度，设为每 150ms 旋转的弧度
+        this.rotationSpeed = 0.5 + Math.random() * 0.5; 
         
         this.lifetime = 15000; 
         this.age = 0;
@@ -77,7 +78,8 @@ class Knife {
         if (this.y < 0) this.y = this.canvasHeight;
         else if (this.y > this.canvasHeight) this.y = 0;
 
-        this.rotation += this.rotationSpeed;
+        // 旋转也改为基于时间的平滑更新
+        this.rotation += this.rotationSpeed * moveScale;
         
         this.age += deltaTime;
         if (this.age >= this.lifetime) {

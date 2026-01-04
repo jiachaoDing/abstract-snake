@@ -160,23 +160,15 @@ class FoodManager {
                 // 碰撞区域同步更新为 6x4
                 return diffX >= 0 && diffX < 6 && diffY >= 0 && diffY < 4;
             } else if (f.type === 'super') {
-                let diffX = head.x - (f.x + 0.5); // 居中 2x2 判定在 3x3 中
-                if (diffX < -tileCountX/2) diffX += tileCountX;
-                if (diffX > tileCountX/2) diffX -= tileCountX;
-                let diffY = head.y - (f.y + 0.5);
-                if (diffY < -tileCountY/2) diffY += tileCountY;
-                if (diffY > tileCountY/2) diffY -= tileCountY;
-                // 3x3 的图，2x2 的判定：
-                // 如果 f.x 是起始坐标，判定区在 f.x+0.5 到 f.x+2.5 之间？
-                // 简化：如果 head.x 在 [f.x, f.x+2] 且 head.y 在 [f.y, f.y+2] 即使是 2x2
-                // 这里用 head.x - f.x 处理穿墙
+                // 超级食物 3x3 判定
                 let dX = head.x - f.x;
                 if (dX < 0) dX += tileCountX;
                 if (dX >= tileCountX) dX -= tileCountX;
                 let dY = head.y - f.y;
                 if (dY < 0) dY += tileCountY;
                 if (dY >= tileCountY) dY -= tileCountY;
-                return dX >= 0.5 && dX < 2.5 && dY >= 0.5 && dY < 2.5;
+                
+                return dX >= 0 && dX < 3 && dY >= 0 && dY < 3;
             } else {
                 let diffX = Math.abs(head.x - f.x);
                 if (diffX > tileCountX / 2) diffX = tileCountX - diffX;
