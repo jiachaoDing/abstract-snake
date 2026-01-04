@@ -84,19 +84,40 @@ body {
 
 .message {
     font-size: 32px;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
     color: #ff4444;
 }
 
-#start-btn, #restart-btn {
-    padding: 12px 40px;
+.final-score {
     font-size: 20px;
+    margin-bottom: 25px;
+    color: #fff;
+}
+
+.button-group {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+}
+
+#start-btn, #restart-btn, #share-btn {
+    padding: 12px 25px;
+    font-size: 18px;
     background-color: #4CAF50;
     color: white;
     border: none;
     border-radius: 5px;
     cursor: pointer;
     transition: all 0.3s;
+}
+
+#share-btn {
+    background-color: #2196F3;
+}
+
+#share-btn:hover {
+    background-color: #1976D2;
+    transform: scale(1.05);
 }
 
 #start-btn.hidden {

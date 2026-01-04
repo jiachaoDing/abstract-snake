@@ -16,6 +16,8 @@ const scoreElement = document.getElementById('score');
 const maxLengthElement = document.getElementById('max-length');
 const gameOverScreen = document.getElementById('game-over');
 const restartBtn = document.getElementById('restart-btn');
+const shareBtn = document.getElementById('share-btn');
+const finalMaxLengthElement = document.getElementById('final-max-length');
 const startScreen = document.getElementById('start-screen');
 const startBtn = document.getElementById('start-btn');
 const loadingStatus = startScreen.querySelector('.loading-status');
@@ -109,6 +111,7 @@ eventBus.on('game:reset', (data) => {
 
 eventBus.on('game:over', (data) => {
     gameOverScreen.classList.remove('hidden');
+    finalMaxLengthElement.innerText = data.maxSnakeLength;
     // 停止 BGM
     Assets.audio.bgm.pause();
 }, 'UI');
@@ -270,6 +273,41 @@ restartBtn.addEventListener('click', () => {
     // 重新初始化游戏
     initGame();
 });
+
+shareBtn.addEventListener('click', () => {
+    const maxLength = finalMaxLengthElement.innerText;
+    const url = window.location.href;
+    const shareText = `我在贪吃牢大中最长${maxLength}，你也来试试吧！\n${url}`;
+    
+    // 优先使用 Web Share API
+    if (navigator.share) {
+        navigator.share({
+            title: '贪吃牢大',
+            text: shareText,
+            url: url
+        }).catch(err => {
+            console.log('Share failed:', err);
+            copyToClipboard(shareText);
+        });
+    } else {
+        copyToClipboard(shareText);
+    }
+});
+
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        const originalText = shareBtn.innerText;
+        shareBtn.innerText = '已复制到剪贴板！';
+        shareBtn.style.backgroundColor = '#4CAF50';
+        setTimeout(() => {
+            shareBtn.innerText = originalText;
+            shareBtn.style.backgroundColor = '#2196F3';
+        }, 2000);
+    }).catch(err => {
+        alert('复制失败，请手动分享');
+        console.error('Could not copy text: ', err);
+    });
+}
 
 startBtn.addEventListener('click', initGame);
 
