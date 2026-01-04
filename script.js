@@ -43,7 +43,7 @@ renderer.continuousRender = true;
 
 // ============= 注册动画 =============
 animationManager.register('opening', {
-    src: ASSET_BASE_URL + 'sprite_sheet_66.png',
+    src: ASSET_BASE_URL + 'sprite_sheet_66.webp',
     audioSrc: ASSET_BASE_URL + 'animation1.MP3',
     cols: 11,
     rows: 6,
