@@ -1,4 +1,11 @@
 // 资源管理器
+
+// --- 资源路径配置 ---
+// 如果你在中国香港 OSS/COS 上传了资源，请将下面的路径改为你的 Bucket 访问地址
+// 例如: 'https://abstract-snake.oss-cn-hongkong.aliyuncs.com/assets/'
+const ASSET_BASE_URL = 'https://snake-1361770797.cos.ap-hongkong.myqcloud.com/assets/'; 
+// -------------------
+
 const Assets = {
     images: {
         head: new Image(),
@@ -9,10 +16,10 @@ const Assets = {
         knife: new Image()
     },
     audio: {
-        eat: new Audio('assets/eatfood.aac'),
-        dead: new Audio('assets/dead.aac'),
-        kemiao: new Audio('assets/kemiao.MP3'),
-        bgm: new Audio('assets/backend.mp3')
+        eat: new Audio(ASSET_BASE_URL + 'eatfood.aac'),
+        dead: new Audio(ASSET_BASE_URL + 'dead.aac'),
+        kemiao: new Audio(ASSET_BASE_URL + 'kemiao.MP3'),
+        bgm: new Audio(ASSET_BASE_URL + 'backend.mp3')
     },
     loaded: {
         head: false,
@@ -24,12 +31,12 @@ const Assets = {
     },
 
     init() {
-        this.images.head.src = 'assets/head.png';
-        this.images.body.src = 'assets/body.png';
-        this.images.food.src = 'assets/food.png';
-        this.images.food2.src = 'assets/food2.png';
-        this.images.food3.src = 'assets/food3.png';
-        this.images.knife.src = 'assets/knife.png';
+        this.images.head.src = ASSET_BASE_URL + 'head.png';
+        this.images.body.src = ASSET_BASE_URL + 'body.png';
+        this.images.food.src = ASSET_BASE_URL + 'food.png';
+        this.images.food2.src = ASSET_BASE_URL + 'food2.png';
+        this.images.food3.src = ASSET_BASE_URL + 'food3.png';
+        this.images.knife.src = ASSET_BASE_URL + 'knife.png';
 
         this.images.head.onload = () => this.loaded.head = true;
         this.images.body.onload = () => this.loaded.body = true;
@@ -52,4 +59,3 @@ const Assets = {
 };
 
 Assets.init();
-
