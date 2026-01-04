@@ -4,7 +4,8 @@ const IS_MOBILE = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini
 // --- 资源路径配置 ---
 // 如果你在中国香港 OSS/COS 上传了资源，请将下面的路径改为你的 Bucket 访问地址
 // 例如: 'https://abstract-snake.oss-cn-hongkong.aliyuncs.com/assets/'
-const ASSET_BASE_URL = 'https://snake-1361770797.cos.ap-hongkong.myqcloud.com/assets/'; 
+// const ASSET_BASE_URL = 'https://snake-1361770797.cos.ap-hongkong.myqcloud.com/assets/'; 
+const ASSET_BASE_URL = 'https://snake2-1361770797.cos.ap-guangzhou.myqcloud.com/assets/';
 // -------------------
 
 const GRID_SIZE = IS_MOBILE ? 16 : 40; 
