@@ -43,8 +43,8 @@ renderer.continuousRender = true;
 
 // ============= 注册动画 =============
 animationManager.register('opening', {
-    src: 'assets/sprite_sheet_66.png',
-    audioSrc: 'assets/animation1.MP3',
+    src: ASSET_BASE_URL + 'sprite_sheet_66.png',
+    audioSrc: ASSET_BASE_URL + 'animation1.MP3',
     cols: 11,
     rows: 6,
     totalFrames: 66,
@@ -279,34 +279,57 @@ shareBtn.addEventListener('click', () => {
     const url = window.location.href;
     const shareText = `我在贪吃牢大中最长${maxLength}，你也来试试吧！\n${url}`;
     
-    // 优先使用 Web Share API
-    if (navigator.share) {
-        navigator.share({
-            title: '贪吃牢大',
-            text: shareText,
-            url: url
-        }).catch(err => {
-            console.log('Share failed:', err);
-            copyToClipboard(shareText);
-        });
-    } else {
-        copyToClipboard(shareText);
-    }
+    copyToClipboard(shareText);
 });
 
 function copyToClipboard(text) {
-    navigator.clipboard.writeText(text).then(() => {
-        const originalText = shareBtn.innerText;
-        shareBtn.innerText = '已复制到剪贴板！';
-        shareBtn.style.backgroundColor = '#4CAF50';
-        setTimeout(() => {
-            shareBtn.innerText = originalText;
-            shareBtn.style.backgroundColor = '#2196F3';
-        }, 2000);
-    }).catch(err => {
-        alert('复制失败，请手动分享');
-        console.error('Could not copy text: ', err);
-    });
+    // 创建隐藏的 textarea 用于兼容性复制
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    // 确保在移动端不会触发页面滚动或弹出键盘
+    textArea.style.position = "fixed";
+    textArea.style.left = "-9999px";
+    textArea.style.top = "0";
+    document.body.appendChild(textArea);
+    
+    // 选中文字
+    textArea.focus();
+    textArea.select();
+    textArea.setSelectionRange(0, 99999); // 兼容 iOS
+
+    let successful = false;
+    try {
+        // 优先使用传统的 execCommand('copy')，它在移动端浏览器（如微信）中稳定性更高
+        successful = document.execCommand('copy');
+    } catch (err) {
+        successful = false;
+    }
+
+    if (successful) {
+        showCopyFeedback();
+    } else if (navigator.clipboard) {
+        // 备选方案：使用现代 Clipboard API
+        navigator.clipboard.writeText(text).then(() => {
+            showCopyFeedback();
+        }).catch(err => {
+            console.error('Clipboard API failed:', err);
+            alert('复制失败，请手动长按链接分享');
+        });
+    } else {
+        alert('复制失败，请手动长按链接分享');
+    }
+
+    document.body.removeChild(textArea);
+}
+
+function showCopyFeedback() {
+    const originalText = shareBtn.innerText;
+    shareBtn.innerText = '已复制链接！';
+    shareBtn.style.backgroundColor = '#4CAF50';
+    setTimeout(() => {
+        shareBtn.innerText = originalText;
+        shareBtn.style.backgroundColor = '#2196F3';
+    }, 2000);
 }
 
 startBtn.addEventListener('click', initGame);

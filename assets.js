@@ -1,11 +1,5 @@
 // 资源管理器
 
-// --- 资源路径配置 ---
-// 如果你在中国香港 OSS/COS 上传了资源，请将下面的路径改为你的 Bucket 访问地址
-// 例如: 'https://abstract-snake.oss-cn-hongkong.aliyuncs.com/assets/'
-const ASSET_BASE_URL = 'https://snake-1361770797.cos.ap-hongkong.myqcloud.com/assets/'; 
-// -------------------
-
 const Assets = {
     images: {
         head: new Image(),
@@ -45,9 +39,12 @@ const Assets = {
         this.images.food3.onload = () => this.loaded.food3 = true;
         this.images.knife.onload = () => this.loaded.knife = true;
 
-        // 设置 BGM 循环
+        // 设置音量
         this.audio.bgm.loop = true;
-        this.audio.bgm.volume = 0.5; // 默认音量 50%
+        this.audio.bgm.volume = 0.4;  // BGM 稍微调低一点
+        this.audio.dead.volume = 1.0; // 死亡音效调到最大
+        this.audio.eat.volume = 0.8;
+        this.audio.kemiao.volume = 0.8;
     },
 
     play(sound) {

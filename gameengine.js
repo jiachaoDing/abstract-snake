@@ -266,7 +266,10 @@ class GameEngine {
         this.isGameOver = true;
         this.stop();
         
-        Assets.play('dead');
+        // 延迟播放死亡音效，避免被瞬间切断或听不清
+        setTimeout(() => {
+            Assets.play('dead');
+        }, 200);
         
         eventBus.emit('game:over', {
             score: this.score,
